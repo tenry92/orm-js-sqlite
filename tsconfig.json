@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es6",
+    "noImplicitAny": false,
+    "outDir": ".",
+    "sourceMap": true,
+    "declaration": true
+  },
+  "files": [
+    "index.ts",
+    "sqlite.d.ts"
+  ]
+}
