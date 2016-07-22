@@ -1,6 +1,6 @@
 {
   "name": "orm-js-sqlite",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SQLite connection for orm-js.",
   "main": "index.js",
   "scripts": {
@@ -26,7 +26,8 @@
   },
   "license": "ISC",
   "files": [
-    "index.js"
+    "index.js",
+    "index.d.ts"
   ],
   "dependencies": {
     "orm-js": "^0.1.0",
