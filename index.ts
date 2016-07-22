@@ -1,6 +1,7 @@
 import { AbstractDatabase } from 'orm-js/abstract-database';
 import { Schema, Table, Field } from 'orm-js/schema';
-import { Query, EntityClass, ExpressionNode } from 'orm-js/query';
+import { Query, EntityClass } from 'orm-js/query';
+import { ExpressionNode, BinaryNode, LiteralNode, FieldNode, CallNode } from 'orm-js/query';
 import sqlite = require('sqlite');
 
 
@@ -335,43 +336,49 @@ export default class SqliteDatabase extends AbstractDatabase {
     return selection;
   }
   
+  private isLiteralNode(node: ExpressionNode): node is LiteralNode {
+    return node.type == 'literal';
+  }
+  
+  private isFieldNode(node: ExpressionNode): node is FieldNode {
+    return node.type == 'field';
+  }
+  
+  private isBinaryNode(node: ExpressionNode): node is BinaryNode {
+    return [ 'eq', 'neq', 'lt', 'le', 'gt', 'ge', 'or', 'and' ].indexOf(node.type) != -1;
+  }
+  
+  private isCallNode(node: ExpressionNode): node is CallNode {
+    return node.type == 'call';
+  }
+  
   private buildExpression(node: ExpressionNode) {
     let stmt = '';
     
-    switch(node.type) {
-      case 'literal':
-        return this.quote(node.value);
-      case 'field':
-        {
-          let field = <string> node.field;
-          
-          return ` \`${field}\``;
+    if(this.isLiteralNode(node)) {
+      return this.quote(node.value);
+    } else if(this.isFieldNode(node)) {
+      let field = node.field;
+      
+      return ` \`${field}\``;
+    } else if(this.isBinaryNode(node)) {
+      let operator = binaryOperations[node.type];
+      
+      stmt += ` ${this.buildExpression(node.left)} ${operator} ${this.buildExpression(node.right)}`;
+    } else if(this.isCallNode(node)) {
+      let params = [];
+      
+      for(let param of node.parameters) {
+        if(this.isFieldNode(param)) {
+          // functions can't access the aliases
+          let match = /^(.+)\.([^.]+)$/.exec(param.field);
+          params.push(`\`${match[1]}\`.\`${match[2]}\``);
+        } else {
+          params.push(this.buildExpression(param));
         }
-      case 'eq': case 'neq':
-      case 'lt': case 'le':
-      case 'gt': case 'ge':
-      case 'or': case 'and':
-        {
-          let operator = binaryOperations[node.type];
-          
-          stmt += ` ${this.buildExpression(node.left)} ${operator} ${this.buildExpression(node.right)}`;
-          break;
-        }
-      case 'call':
-        let params = [];
-        
-        for(let param of node.parameters) {
-          if(param.type == 'field') {
-            // functions can't access the aliases
-            let match = /^(.+)\.([^.]+)$/.exec(param.field);
-            params.push(`\`${match[1]}\`.\`${match[2]}\``);
-          } else {
-            params.push(this.buildExpression(param));
-          }
-        }
-        
-        stmt += ` ${node.function.toUpperCase()}(${params.join(', ')})`;
-        break;
+      }
+      
+      stmt += ` ${node.function.toUpperCase()}(${params.join(', ')})`;
     }
     
     return `(${stmt.trim()})`;
