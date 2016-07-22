@@ -1,6 +1,6 @@
 {
   "name": "orm-js-sqlite",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SQLite connection for orm-js.",
   "main": "index.js",
   "scripts": {
@@ -19,9 +19,10 @@
     "sqlite"
   ],
   "author": "Simon \"Tenry\" Burchert",
+  "homepage": "https://github.com/tenry92/orm-js-sqlite",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tenry92/orm-js-sqlite"
+    "url": "https://github.com/tenry92/orm-js-sqlite.git"
   },
   "license": "ISC",
   "files": [
