@@ -24,7 +24,7 @@
     "type": "git",
     "url": "https://github.com/tenry92/orm-js-sqlite.git"
   },
-  "license": "ISC",
+  "license": "MIT",
   "files": [
     "index.js",
     "index.d.ts"
