@@ -30,7 +30,7 @@
     "index.d.ts"
   ],
   "dependencies": {
-    "orm-js": "^0.1.0",
+    "orm-js": "^0.1.5",
     "sqlite": "^2.1.0"
   }
 }

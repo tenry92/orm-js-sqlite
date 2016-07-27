@@ -41,6 +41,7 @@ export default class SqliteDatabase extends AbstractDatabase {
           if(!definedFields.has(field.internalName)) {
             let query = `ALTER TABLE \`${table.name}\` ADD 
             \`${field.internalName}\``;
+            this.logQuery(query);
             await sqlite.run(query);
           }
         }
@@ -85,10 +86,14 @@ export default class SqliteDatabase extends AbstractDatabase {
       let query = `CREATE TABLE \`${table.name}\` (${fields.join(', ')}`;
       if(table.idField) {
         query += `, PRIMARY KEY (\`${table.idField.internalName}\`)`;
+      } else if(table.idFields.length > 0) {
+        let keyFields = table.idFields.map(field => `\`${field.internalName}\``);
+        query += `, PRIMARY KEY(${keyFields.join(', ')})`;
       }
       
       query += `)`;
       
+      this.logQuery(query);
       await sqlite.run(query);
     }
   }
@@ -103,11 +108,13 @@ export default class SqliteDatabase extends AbstractDatabase {
     
     let query = `CREATE TABLE \`${tableName}\` (${fields.join(', ')})`;
     
+    this.logQuery(query);
     await sqlite.run(query);
   }
   
   private async tableExists(table: Table) {
     let query = `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${this.quote(table.name)}`;
+    this.logQuery(query);
     let result = await sqlite.all(query);
     
     return result.length > 0;
@@ -115,6 +122,7 @@ export default class SqliteDatabase extends AbstractDatabase {
   
   private async getDefinedFields(table: Table) {
     let query = `PRAGMA table_info(\`${table.name}\`)`;
+    this.logQuery(query);
     let result = <SqliteField[]>(await sqlite.all(query));
     
     let fields = new Map<string, SqliteField>();
@@ -138,6 +146,7 @@ export default class SqliteDatabase extends AbstractDatabase {
     
     let stmt = `SELECT ${fields} FROM \`${table.name}\` ${this.buildQueryParams(query)}`;
     
+    this.logQuery(stmt);
     let data = await sqlite.all(stmt);
     
     let items = [];
@@ -211,6 +220,7 @@ export default class SqliteDatabase extends AbstractDatabase {
           
           stmt += this.quote(item[table.idField.name]);
           
+          this.logQuery(stmt);
           await sqlite.run(stmt);
           
           if(item[field.name]) {
@@ -226,6 +236,7 @@ export default class SqliteDatabase extends AbstractDatabase {
             stmt = `INSERT INTO \`${field.joinTable}\` (${fields.join(', ')}) ` +
               `VALUES ${values.join(', ')}`;
             
+            this.logQuery(stmt);
             await sqlite.run(stmt);
           }
           
@@ -269,6 +280,7 @@ export default class SqliteDatabase extends AbstractDatabase {
     }
     
     let stmt = `INSERT OR REPLACE INTO \`${table.name}\` (${fields.join(', ')}) VALUES (${values.join(', ')})`;
+    this.logQuery(stmt);
     let result = await sqlite.run(stmt);
     
     if(table.idField) {
@@ -289,6 +301,7 @@ export default class SqliteDatabase extends AbstractDatabase {
     
     let stmt = `SELECT COUNT(*) AS \`count\`, ${fields} FROM \`${table.name}\` ${this.buildQueryParams(query, false)}`;
     
+    this.logQuery(stmt);
     let result = await sqlite.get(stmt);
     return result['count'];
   }
@@ -494,5 +507,88 @@ export default class SqliteDatabase extends AbstractDatabase {
     else if(typeof value == 'bolean') return value ? '1' : '0';
     else if(value == null) return 'NULL'; // null and undefined
     else return `'${value.replace(/'/g, "''")}'`;
+  }
+  
+  private logQuery(query: string) {
+    console.log(this.colorfulQuery(query));
+  }
+  
+  /**
+   * This is for testing only and is designed to work on a linux terminal.
+   */
+  private colorfulQuery(sql: string) {
+    let out = '';
+    
+    function color(str: string, code: number) {
+      return `\u001b[38;5;${code}m${str}\u001b[0m`;
+    }
+    
+    function keyword1(str: string) {
+      return color(str, 20);
+    }
+    
+    function keyword2(str: string) {
+      return color(str, 25);
+    }
+    
+    function keyword3(str: string) {
+      return color(str, 27);
+    }
+    
+    function keyword4(str: string) {
+      return color(str, 28);
+    }
+    
+    function keyword5(str: string) {
+      return color(str, 24);
+    }
+    
+    function keyword6(str: string) {
+      return color(str, 92);
+    }
+    
+    function name(str: string) {
+      return color(str, 100);
+    }
+    
+    function quote(str: string) {
+      return color(str, 90);
+    }
+    
+    function numeric(str: string) {
+      return color(str, 75);
+    }
+    
+    while(sql.length > 0) {
+      let match: string[];
+      if(match = /^(SELECT|INSERT|REPLACE|INTO|DELETE|CREATE|TABLE|FROM|ALTER|ADD)\b/.exec(sql)) {
+        out += keyword1(match[1]);
+      } else if(match = /^(LEFT|JOIN)\b/.exec(sql)) {
+        out += keyword4(match[1]);
+      } else if(match = /^(AS|VALUES|AND|OR|ON|ASC|DESC)\b/.exec(sql)) {
+        out += keyword5(match[1]);
+      } else if(match = /^(LIMIT|OFFSET|ON|WHERE|ORDER BY)\b/.exec(sql)) {
+        out += keyword3(match[1]);
+      } else if(match = /^(PRIMARY|KEY|UNIQUE|CONSTRAINT|FOREIGN|CHECK|TEXT|INTEGER|NULL|REAL)\b/.exec(sql)) {
+        out += keyword2(match[1]);
+      } else if(match = /^(COUNT|AVG|SUM)\b/.exec(sql)) {
+        out += keyword6(match[1]);
+      } else if(match = /^`[^`]+`/.exec(sql)) {
+        out += name(match[0]);
+      } else if(match = /^'[^']*'/.exec(sql)) {
+        out += quote(match[0]);
+      } else if(match = /^-?[0-9]+(\.[0-9]+)?/.exec(sql)) {
+        out += numeric(match[0]);
+      } else {
+        out += sql[0];
+        sql = sql.substr(1);
+      }
+      
+      if(match) {
+        sql = sql.substr(match[0].length);
+      }
+    }
+    
+    return out;
   }
 }
